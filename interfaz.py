@@ -39,8 +39,8 @@ class EcuacionExactaApp:
         ejemplos = [
             ("(x-y+1)*dx-dy=0", "Ejercicio 1"),
             ("(x*y^3+1)*dx+x^2*y^2*dy=0", "Ejercicio 2"),
-            ("(2*x*y+3)*dx+x^2*dy=0", "Ejercicio 3"),
-            ("(4*x*y^2+3*y)*dx+(3*x^2*y+2*x)*dy=0", "Ejercicio 4"),
+            ("-y*dx+(x+y^2-1)*dy=0", "Ejercicio 3"),
+            ("y*dx+(x-x^2*y)*dy=0", "Ejercicio 4"),
             ("x^2*y^2*dx+(x^3*y+y+3)*dy=0", "Ejercicio 5"),
             ("x^2*dx-(x^3*y^2+3*y^2)*dy=0", "Ejercicio 6"),
             ("(x^2+y^2)*dx+2*x*y*dy=0", "Ejercicio 7"),
