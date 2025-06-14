@@ -39,12 +39,12 @@ class EcuacionExactaApp:
         ejemplos = [
             ("(x-y+1)*dx-dy=0", "Ejercicio 1"),
             ("(x*y^3+1)*dx+x^2*y^2*dy=0", "Ejercicio 2"),
-            ("x*dy-y*dx+(y^2-1)*dy=0", "Ejercicio 3"),
-            ("x*dy+y*dx-x^2*y*dy=0", "Ejercicio 4"),
+            ("(2*x*y+3)*dx+x^2*dy=0", "Ejercicio 3"),
+            ("(4*x*y^2+3*y)*dx+(3*x^2*y+2*x)*dy=0", "Ejercicio 4"),
             ("x^2*y^2*dx+(x^3*y+y+3)*dy=0", "Ejercicio 5"),
             ("x^2*dx-(x^3*y^2+3*y^2)*dy=0", "Ejercicio 6"),
-            ("(x*y^2+x^2*y^2+3)*dx+x*y^3*dy=0", "Ejercicio 7"),
-            ("(1/x)*dx-(1+x*y^2)*dy=0", "Ejercicio 8"),
+            ("(x^2+y^2)*dx+2*x*y*dy=0", "Ejercicio 7"),
+            ("(3*x^2*y^2+2*x*y)*dx+(2*x^3*y+x^2)*dy=0", "Ejercicio 8"),
             ("(x^2+2*x+y)*dx+(1-x^2-y)*dy=0", "Ejercicio 9"),
             ("(cos(x)-sen(x)+sen(y))*dx+(cos(x)+sen(y)+cos(y))*dy=0", "Ejercicio 10")
         ]

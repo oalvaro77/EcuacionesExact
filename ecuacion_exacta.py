@@ -1,5 +1,5 @@
 import sympy as sp
-from sympy import symbols, diff, Eq, solve, simplify, exp, integrate, log
+from sympy import symbols, diff, Eq, solve, simplify, exp, integrate, log, cos, sin
 import re
 
 def analizar_ecuacion_exacta(ecuacion_str):
@@ -11,6 +11,7 @@ def analizar_ecuacion_exacta(ecuacion_str):
     
     # Preprocesar: quitar espacios y '=0'
     ecuacion_str = ecuacion_str.replace(' ', '').replace('=0', '')
+    ecuacion_str = ecuacion_str.replace('sen(', 'sin(').replace('cos(', 'cos(')  # Normalizar funciones
     
     # Patrones mejorados para capturar diferentes formatos
     patrones = [
@@ -22,6 +23,8 @@ def analizar_ecuacion_exacta(ecuacion_str):
         r'^(.+?)\*dy([+-]?)dx$',         # N*dy±dx
         r'^([+-]?)dx([+-]?)dy$',         # ±dx±dy
         r'^([+-]?)dy([+-]?)dx$',         # ±dy±dx
+        r'^\((.+?)\)dx\((.+?)\)dy$',     # (M)*dx(N)*dy
+        r'^\((.+?)\)dy\((.+?)\)dx$',     # (N)*dy(M)*dx
     ]
     
     match = None
@@ -70,6 +73,12 @@ def analizar_ecuacion_exacta(ecuacion_str):
             signo2 = match.group(2) if match.group(2) else '+'
             N_str = '1' if signo1 == '+' else '-1'
             M_str = '1' if signo2 == '+' else '-1'
+        elif patron_usado == 8:  # (M)*dx(N)*dy
+            M_str = match.group(1)
+            N_str = match.group(2)
+        elif patron_usado == 9:  # (N)*dy(M)*dx
+            N_str = match.group(1)
+            M_str = match.group(2)
         
         # Limpiar strings y convertir a expresiones sympy
         M = sp.sympify(M_str.replace('*', '*').strip())
@@ -132,6 +141,28 @@ def analizar_ecuacion_exacta(ecuacion_str):
                         print(f"Factor μ(y) encontrado: {factor}")
                     except Exception:
                         pass
+             # CASO 2B: Factor μ(y) mejorado - casos especiales
+            if factor is None and M != 0:
+                try:
+                    # Analizar estructura específica para ecuaciones polinomiales
+                    cociente_y = simplify((dN_dx - dM_dy) / M)
+                    print(f"Cociente mejorado para μ(y): (∂N/∂x - ∂M/∂y)/M = {cociente_y}")
+                    
+                    # Casos especiales donde el cociente puede simplificarse
+                    if cociente_y == -1/y:  # μ = 1/y
+                        factor = 1/y
+                        caso_factor = 'μ(y) = 1/y'
+                        print(f"Factor μ(y) = 1/y encontrado")
+                    elif cociente_y == -2/y:  # μ = 1/y²
+                        factor = 1/(y**2)
+                        caso_factor = 'μ(y) = 1/y²'
+                        print(f"Factor μ(y) = 1/y² encontrado")
+                    elif cociente_y == 1/y:  # μ = y
+                        factor = y
+                        caso_factor = 'μ(y) = y'
+                        print(f"Factor μ(y) = y encontrado")
+                except Exception as e:
+                    print(f"Error en análisis mejorado μ(y): {e}")
             
             # CASO ESPECIAL: Factor μ(xy) - depende del producto xy
             if factor is None:
@@ -149,12 +180,43 @@ def analizar_ecuacion_exacta(ecuacion_str):
                     
                     # Casos especiales conocidos
                     factores_especiales_xy = [
-                        (1/(x*y), 'μ = 1/(xy)'),
-                        (x*y, 'μ = xy'),
-                        (1/(x*y)**2, 'μ = 1/(xy)²'),
-                        ((x*y)**2, 'μ = (xy)²'),
-                        (exp(x*y), 'μ = e^(xy)'),
-                        (1/exp(x*y), 'μ = e^(-xy)'),
+                         # Factores básicos
+                    (x, 'μ = x'),
+                    (y, 'μ = y'),
+                    (x*y, 'μ = xy'),
+                    (x**2, 'μ = x²'),
+                    (y**2, 'μ = y²'),
+                    (x**2 * y, 'μ = x²y'),
+                    (x * y**2, 'μ = xy²'),
+                    (x**2 * y**2, 'μ = x²y²'),
+                    
+                    # Factores racionales básicos
+                    (1/x, 'μ = 1/x'),
+                    (1/y, 'μ = 1/y'),
+                    (1/(x*y), 'μ = 1/(xy)'),
+                    (1/(x**2), 'μ = 1/x²'),
+                    (1/(y**2), 'μ = 1/y²'),
+                    (1/(x**2 * y), 'μ = 1/(x²y)'),
+                    (1/(x * y**2), 'μ = 1/(xy²)'),
+                    (1/(x**2 * y**2), 'μ = 1/(x²y²)'),
+                    
+                    # Factores para ecuaciones polinomiales específicas
+                    (1/(y**3), 'μ = 1/y³'),
+                    (1/(x**3), 'μ = 1/x³'),
+                    (1/(x * y**3), 'μ = 1/(xy³)'),
+                    (1/(x**3 * y), 'μ = 1/(x³y)'),
+                    
+                    # Combinaciones lineales
+                    ((x + y), 'μ = x + y'),
+                    ((x - y), 'μ = x - y'),
+                    (1/(x + y), 'μ = 1/(x + y)'),
+                    (1/(x - y), 'μ = 1/(x - y)'),
+                    
+                    # Factores exponenciales
+                    (exp(x), 'μ = eˣ'),
+                    (exp(y), 'μ = eʸ'),
+                    (exp(x + y), 'μ = e^(x+y)'),
+                    (exp(x - y), 'μ = e^(x-y)'),
                     ]
                     
                     for mu_test, nombre in factores_especiales_xy:
@@ -259,7 +321,7 @@ def analizar_ecuacion_exacta(ecuacion_str):
                     except Exception:
                         continue
             
-            # CASO 4: Factor integrante de la forma μ = x^m * y^n (método sistemático)
+            # CASO 4: Factor integrante de la forma μ = x^m * y^n (método sistemático mejorado)
             if factor is None:
                 try:
                     # Intentar diferentes combinaciones de exponentes
@@ -268,11 +330,17 @@ def analizar_ecuacion_exacta(ecuacion_str):
                             if m_test == 0 and n_test == 0:
                                 continue
                             
-                            # Evitar divisiones por cero
-                            if (m_test < 0 and x in [0]) or (n_test < 0 and y in [0]):
-                                continue
-                            
-                            mu_test = (x**m_test) * (y**n_test)
+                            # Crear factor de prueba con manejo de casos especiales
+                            if m_test < 0 or n_test < 0:
+                                # Para factores con exponentes negativos, usar 1/(x^|m| * y^|n|)
+                                if m_test < 0 and n_test < 0:
+                                    mu_test = 1/((x**abs(m_test)) * (y**abs(n_test)))
+                                elif m_test < 0:
+                                    mu_test = (y**n_test)/((x**abs(m_test)))
+                                else:  # n_test < 0
+                                    mu_test = (x**m_test)/((y**abs(n_test)))
+                            else:
+                                mu_test = (x**m_test) * (y**n_test)
                             
                             try:
                                 M_test = simplify(M * mu_test)
@@ -282,8 +350,8 @@ def analizar_ecuacion_exacta(ecuacion_str):
                                 
                                 if simplify(dM_test_dy - dN_test_dx) == 0:
                                     factor = mu_test
-                                    caso_factor = f'μ = x^{m_test} * y^{n_test}'
-                                    print(f"Factor encontrado: x^{m_test} * y^{n_test}")
+                                    caso_factor = f'μ = {mu_test}'
+                                    print(f"Factor sistemático encontrado: {mu_test}")
                                     break
                             except Exception:
                                 continue
@@ -292,7 +360,7 @@ def analizar_ecuacion_exacta(ecuacion_str):
                             break
                             
                 except Exception as e:
-                    print(f"Error en búsqueda sistemática: {e}")
+                    print(f"Error en búsqueda sistemática mejorada: {e}")
             
             # CASO 5: Verificar factores de la forma f(ax + by)
             if factor is None:
@@ -343,6 +411,27 @@ def analizar_ecuacion_exacta(ecuacion_str):
                         caso_factor = f"Avanzado: μ = {caso_avanzado}"
                 except Exception as e:
                     print(f"Error en método avanzado: {e}")
+            # CASO 8: Análisis específico para ecuaciones trigonométricas
+            if factor is None:
+                try:
+                    # Detectar si hay funciones trigonométricas
+                    if any(func in str(M) + str(N) for func in ['sin', 'cos', 'tan']):
+                        factor_trig, caso_trig = analizar_ecuacion_trigonometrica(M, N, x, y)
+                        if factor_trig is not None:
+                            factor = factor_trig
+                            caso_factor = f"Trigonométrico: {caso_trig}"
+                except Exception as e:
+                    print(f"Error en análisis trigonométrico: {e}")
+            # CASO 9: Análisis específico para ecuaciones polinomiales
+            if factor is None:
+                try:
+                    # Detectar si tenemos ecuaciones polinomiales complejas
+                    factor_poli, caso_poli = analizar_ecuacion_polinomial(M, N, x, y)
+                    if factor_poli is not None:
+                        factor = factor_poli
+                        caso_factor = f"Polinomial: {caso_poli}"
+                except Exception as e:
+                    print(f"Error en análisis polinomial: {e}")
         
         except Exception as e:
             print(f"Error buscando factor integrante: {e}")
@@ -472,7 +561,6 @@ def buscar_factor_integrante_avanzado(M, N, x, y):
     dN_dx = diff(N, x)
     
     # Método 1: Factor de la forma μ = x^a * y^b
-    # Resolver el sistema: (∂M/∂y - ∂N/∂x) = μ(a*N/x - b*M/y)
     try:
         diferencia = dM_dy - dN_dx
         
@@ -527,7 +615,167 @@ def buscar_factor_integrante_avanzado(M, N, x, y):
     except Exception:
         pass
     
+    # Método 3: Factores trigonométricos
+    try:
+        # Probar factores que involucran funciones trigonométricas
+        factores_trig = [
+            (exp(sin(x)), 'μ = e^(sin(x))'),
+            (exp(cos(x)), 'μ = e^(cos(x))'),
+            (exp(sin(y)), 'μ = e^(sin(y))'),
+            (exp(cos(y)), 'μ = e^(cos(y))'),
+            (exp(sin(x) + cos(y)), 'μ = e^(sin(x) + cos(y))'),
+            (exp(cos(x) + sin(y)), 'μ = e^(cos(x) + sin(y))'),
+            # Factores específicos para ecuaciones trigonométricas
+            (exp(sin(x) + sin(y)), 'μ = e^(sin(x) + sin(y))'),
+            (exp(cos(x) + cos(y)), 'μ = e^(cos(x) + cos(y))'),
+            (exp(sin(x) - cos(x)), 'μ = e^(sin(x) - cos(x))'),
+            (exp(cos(x) - sin(x)), 'μ = e^(cos(x) - sin(x))'),
+        ]
+        
+        for mu_test, nombre in factores_trig:
+            try:
+                M_test = simplify(M * mu_test)
+                N_test = simplify(N * mu_test)
+                dM_test_dy = diff(M_test, y)
+                dN_test_dx = diff(N_test, x)
+                
+                if simplify(dM_test_dy - dN_test_dx) == 0:
+                    return mu_test, nombre
+            except Exception:
+                continue
+    
+    except Exception:
+        pass
+    
     return None, None
+def analizar_ecuacion_trigonometrica(M, N, x, y):
+    """
+    Método especializado para ecuaciones con funciones trigonométricas
+    """
+    try:
+        # Para ecuaciones de la forma con sen y cos, a menudo el factor es exponencial
+        # Probar factores de la forma e^(combinación trigonométrica)
+        
+        # Analizar la estructura de M y N
+        print(f"Analizando ecuación trigonométrica:")
+        print(f"M = {M}")
+        print(f"N = {N}")
+        
+        # Factores comunes para ecuaciones con sen/cos
+        factores_especiales = [
+            exp(sin(x)), exp(cos(x)), exp(sin(y)), exp(cos(y)),
+            exp(sin(x) + sin(y)), exp(cos(x) + cos(y)),
+            exp(sin(x) + cos(y)), exp(cos(x) + sin(y)),
+            exp(sin(x) - cos(x)), exp(cos(x) - sin(x)),
+            exp(sin(y) - cos(y)), exp(cos(y) - sin(y)),
+            # Factores racionales
+            1/(cos(x)), 1/(sin(x)), 1/(cos(y)), 1/(sin(y)),
+        ]
+        
+        for factor_test in factores_especiales:
+            try:
+                M_test = simplify(M * factor_test)
+                N_test = simplify(N * factor_test)
+                dM_test_dy = diff(M_test, y)
+                dN_test_dx = diff(N_test, x)
+                
+                if simplify(dM_test_dy - dN_test_dx) == 0:
+                    return factor_test, f"μ = {factor_test}"
+            except Exception:
+                continue
+                
+        return None, None
+        
+    except Exception as e:
+        print(f"Error en análisis trigonométrico: {e}")
+        return None, None
+    
+def analizar_ecuacion_polinomial(M, N, x, y):
+    """
+    Método especializado para ecuaciones polinomiales complejas
+    """
+    try:
+        print(f"\n=== ANÁLISIS POLINOMIAL ESPECIALIZADO ===")
+        print(f"M = {M}")
+        print(f"N = {N}")
+        
+        dM_dy = diff(M, y)
+        dN_dx = diff(N, x)
+        diferencia = simplify(dM_dy - dN_dx)
+        
+        print(f"∂M/∂y = {dM_dy}")
+        print(f"∂N/∂x = {dN_dx}")
+        print(f"∂M/∂y - ∂N/∂x = {diferencia}")
+        
+        # Método 1: Analizar grados de los polinomios
+        try:
+            # Para M = x*y² + x²*y² + 3, N = x*y³
+            # El cociente (∂N/∂x - ∂M/∂y)/M nos da información del factor
+            
+            if M != 0:
+                cociente = simplify((dN_dx - dM_dy) / M)
+                print(f"Cociente (∂N/∂x - ∂M/∂y)/M = {cociente}")
+                
+                # Buscar patrones específicos
+                if cociente == -1/y:
+                    return 1/y, "μ = 1/y (polinomial)"
+                elif cociente == -2/y:
+                    return 1/(y**2), "μ = 1/y² (polinomial)"
+                elif cociente == -3/y:
+                    return 1/(y**3), "μ = 1/y³ (polinomial)"
+                    
+            if N != 0:
+                cociente = simplify((dM_dy - dN_dx) / N)
+                print(f"Cociente (∂M/∂y - ∂N/∂x)/N = {cociente}")
+                
+                # Buscar patrones específicos
+                if cociente == 1/x:
+                    return x, "μ = x (polinomial)"
+                elif cociente == 2/x:
+                    return x**2, "μ = x² (polinomial)"
+                elif cociente == -1/x:
+                    return 1/x, "μ = 1/x (polinomial)"
+                    
+        except Exception as e:
+            print(f"Error en análisis de cocientes: {e}")
+        
+        # Método 2: Factores específicos para ecuaciones de la forma ax^m*y^n + bx^p*y^q + c
+        factores_polinomial = [
+            (1/y, 'μ = 1/y'),
+            (1/(y**2), 'μ = 1/y²'),
+            (1/(y**3), 'μ = 1/y³'),
+            (1/x, 'μ = 1/x'),
+            (1/(x**2), 'μ = 1/x²'),
+            (1/(x*y), 'μ = 1/(xy)'),
+            (1/(x*y**2), 'μ = 1/(xy²)'),
+            (1/(x**2*y), 'μ = 1/(x²y)'),
+            (x/y, 'μ = x/y'),
+            (y/x, 'μ = y/x'),
+            (x/(y**2), 'μ = x/y²'),
+            (y/(x**2), 'μ = y/x²'),
+        ]
+        
+        for factor_test, nombre in factores_polinomial:
+            try:
+                M_test = simplify(M * factor_test)
+                N_test = simplify(N * factor_test)
+                dM_test_dy = diff(M_test, y)
+                dN_test_dx = diff(N_test, x)
+                
+                diferencia_test = simplify(dM_test_dy - dN_test_dx)
+                print(f"Probando {nombre}: diferencia = {diferencia_test}")
+                
+                if diferencia_test == 0:
+                    return factor_test, f"{nombre} (método polinomial)"
+            except Exception as e:
+                print(f"Error probando {nombre}: {e}")
+                continue
+        
+        return None, None
+        
+    except Exception as e:
+        print(f"Error en análisis polinomial: {e}")
+        return None, None
 
 def obtener_grado_homogeneo(expr, x, y):
     """
@@ -592,6 +840,8 @@ if __name__ == "__main__":
         "y*dx-x*dy",
         "(x^2 + y^2)*dx + 2*x*y*dy",  # Otro caso interesante
         "dx+dy",
+        "(cos(x)-sen(x)+sen(y))*dx+(cos(x)+sen(y)+cos(y))*dy",
+         "(x*y^2+x^2*y^2+3)*dx + (x*y^3)*dy",
     ]
     
     for caso in casos_prueba:
